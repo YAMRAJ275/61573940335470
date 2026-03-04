@@ -1,5 +1,28 @@
+# .gitignore file banao
+cat > .gitignore << 'EOF'
+# Dependencies
 node_modules/
+package-lock.json
+yarn.lock
+
+# Build
+dist/
+build/
+
+# Environment
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Uploads
 uploads/
 processed/
-.env
-.DS_Store
+temp/
+
+# IDE
+.vscode/
+.idea/
+EOF
