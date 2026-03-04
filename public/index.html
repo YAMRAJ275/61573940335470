@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>File Text Processor - Incremental Delay</title>
+    <title>File Processor - Seconds Badhte Jayenge</title>
     <style>
         * {
             margin: 0;
@@ -185,8 +185,8 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>📄 File Text Processor</h1>
-            <p>Har line 1 second ke increment par process hogi</p>
+            <h1>⏱️ Incremental Delay Processor</h1>
+            <p>setTimeout(() => {a({body: "file text"})}, 1000); // Seconds badhte jayenge</p>
         </div>
 
         <div class="formula-bar">
@@ -249,7 +249,6 @@
 
             fileInfo.textContent = `📄 ${file.name} (${(file.size/1024).toFixed(2)} KB)`;
             
-            // Clear previous process
             if (statusInterval) clearInterval(statusInterval);
             downloadBtn.classList.remove('active');
             output.innerHTML = '<div class="line-item">📤 Uploading file...</div>';
@@ -275,7 +274,7 @@
                         ✅ File uploaded: ${data.totalLines} lines found
                     </div>`;
                     output.innerHTML += `<div class="line-item">
-                        🚀 Processing started with 1s increments...
+                        🚀 Processing started: 1s, 2s, 3s, 4s...
                     </div>`;
                     
                     startStatusCheck(data.processId);
@@ -293,25 +292,22 @@
                     
                     statProcessed.textContent = data.processed;
                     
-                    // Update next delay
                     if (data.processed < data.totalLines) {
                         statDelay.textContent = (data.processed + 1) + 's';
                     } else {
                         statDelay.textContent = 'Done!';
                     }
                     
-                    // Show latest processed line
                     if (data.results && data.results.length > 0) {
                         const lastResult = data.results[data.results.length - 1];
                         
-                        // Check if already displayed
                         const lastDisplayed = output.lastElementChild;
                         if (!lastDisplayed.innerHTML.includes(`Line #${lastResult.lineNumber}`)) {
                             output.innerHTML += `<div class="line-item">
                                 <span class="delay-badge">⏱️ ${lastResult.delay}s</span>
                                 <strong>Line #${lastResult.lineNumber}</strong>
                                 <span style="color: #9f7aea; margin-left: 10px;">
-                                    (Formula: ${lastResult.lineNumber} × 1000ms)
+                                    (${lastResult.lineNumber}s delay)
                                 </span>
                                 <div class="line-text">
                                     ${lastResult.content.substring(0, 150)}${lastResult.content.length > 150 ? '...' : ''}
@@ -321,12 +317,11 @@
                         }
                     }
                     
-                    // Check if completed
                     if (data.status === 'completed') {
                         clearInterval(statusInterval);
                         statDelay.textContent = 'Done!';
                         output.innerHTML += `<div class="line-item" style="border-left-color: #48bb78;">
-                            🎉 All ${data.totalLines} lines processed successfully!
+                            🎉 All ${data.totalLines} lines processed!
                         </div>`;
                         downloadBtn.classList.add('active');
                     }
