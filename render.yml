@@ -1,11 +1,12 @@
 services:
   - type: web
     name: file-processor-server
-    env: node
+    runtime: node
+    repo: https://github.com/YAMRAJ275/61573940335470
+    branch: main
+    plan: free
     buildCommand: npm install
     startCommand: npm start
     envVars:
       - key: NODE_VERSION
-        value: 18.17.0
-      - key: MAX_FILE_SIZE
-        value: 83886080
+        value: 20.18.0
