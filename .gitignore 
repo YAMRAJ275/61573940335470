@@ -20,18 +20,21 @@ build/
 .DS_Store
 Thumbs.db
 desktop.ini
+*.log
 
-# 📂 Uploaded files
+# 📂 Uploaded files (Important!)
 uploads/
 processed/
 temp/
 *.txt
 *.log
+*.tmp
 
 # 🔒 Sensitive
 *.pem
 *.key
 *.crt
+*.p12
 
 # 💡 IDE
 .vscode/
@@ -39,8 +42,25 @@ temp/
 *.swp
 *.swo
 *~
+.project
+.classpath
 
 # 🎯 Runtime
 pid.log
 runtime.log
 *.pid
+*.seed
+*.pid.lock
+
+# 📦 Package manager
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# 🔥 Fire.js specific
+!public/
+!server.js
+!package.json
+!render.yml
+!.gitignore
