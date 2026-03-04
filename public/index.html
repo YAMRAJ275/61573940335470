@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>File Processor with Incremental Delay</title>
+    <title>Sentence Processor - Incremental Delay</title>
     <style>
         * {
             margin: 0;
@@ -34,10 +34,18 @@
             font-size: 28px;
             margin-bottom: 10px;
         }
+        .formula-bar {
+            background: #2d3748;
+            color: #fbbf24;
+            padding: 15px;
+            text-align: center;
+            font-family: monospace;
+            font-size: 18px;
+            border-bottom: 2px solid #667eea;
+        }
         .upload-area {
             padding: 30px;
             background: #f7fafc;
-            border-bottom: 2px dashed #cbd5e0;
         }
         .file-input-wrapper {
             position: relative;
@@ -70,38 +78,17 @@
             z-index: 1;
             pointer-events: none;
         }
-        .progress-panel {
-            padding: 25px;
-            background: #f7fafc;
-        }
-        #output {
-            background: #1a202c;
-            color: #fff;
-            padding: 15px;
-            border-radius: 10px;
-            min-height: 200px;
-            max-height: 400px;
-            overflow-y: auto;
-            font-family: monospace;
-            margin: 15px 0;
-        }
-        .log-line {
-            padding: 5px;
-            border-bottom: 1px solid #2d3748;
-            font-size: 13px;
-        }
-        .delay-badge {
-            background: #4299e1;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-size: 11px;
-            margin-right: 8px;
+        .file-info {
+            margin-top: 10px;
+            color: #718096;
+            font-size: 14px;
         }
         .stats {
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-columns: repeat(3, 1fr);
             gap: 15px;
-            margin: 15px 0;
+            padding: 20px;
+            background: #f7fafc;
         }
         .stat-card {
             background: white;
@@ -111,49 +98,91 @@
             box-shadow: 0 2px 5px rgba(0,0,0,0.05);
         }
         .stat-value {
-            font-size: 24px;
+            font-size: 28px;
             font-weight: bold;
             color: #4a5568;
         }
         .stat-label {
             font-size: 12px;
             color: #718096;
+            margin-top: 5px;
         }
-        .download-section {
+        #output {
+            background: #1a202c;
+            color: #fff;
+            padding: 20px;
+            min-height: 300px;
+            max-height: 500px;
+            overflow-y: auto;
+            font-family: monospace;
+            margin: 0 20px 20px 20px;
+            border-radius: 10px;
+        }
+        .sentence-item {
+            padding: 12px;
+            margin: 8px 0;
+            background: #2d3748;
+            border-left: 4px solid #4299e1;
+            border-radius: 5px;
+            animation: slideIn 0.3s ease;
+        }
+        .delay-badge {
+            background: #48bb78;
+            color: white;
+            padding: 3px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-right: 10px;
+            display: inline-block;
+        }
+        .sentence-text {
+            color: #e2e8f0;
+            margin-top: 8px;
+            padding-left: 10px;
+            border-left: 2px solid #4a5568;
+        }
+        .download-btn {
             background: #48bb78;
             color: white;
             padding: 20px;
+            margin: 0 20px 20px 20px;
             border-radius: 8px;
             text-align: center;
             cursor: pointer;
-            transition: all 0.3s;
+            font-size: 18px;
+            font-weight: bold;
             display: none;
+            transition: all 0.3s;
         }
-        .download-section:hover {
+        .download-btn:hover {
             background: #38a169;
+            transform: scale(1.02);
         }
-        .download-section.active {
+        .download-btn.active {
             display: block;
         }
-        .btn {
-            background: #667eea;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-        .btn:hover {
-            background: #5a67d8;
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>⏱️ Incremental Delay Processor</h1>
-            <p>Har line 1s, 2s, 3s... ke delay par process hogi</p>
+            <h1>📝 Incremental Delay Processor</h1>
+            <p>हर sentence अपने नंबर के हिसाब से delay पर process होगा</p>
+        </div>
+
+        <div class="formula-bar">
+            ⚡ Formula: delay = sentence_number × 1000ms (1s, 2s, 3s...)
         </div>
 
         <div class="upload-area">
@@ -163,33 +192,32 @@
                     📁 Choose text file (Max 80MB)
                 </div>
             </div>
-            <p id="fileInfo" style="margin-top:10px; color:#718096;">No file selected</p>
+            <div class="file-info" id="fileInfo">No file selected</div>
         </div>
 
-        <div class="progress-panel">
-            <div class="stats">
-                <div class="stat-card">
-                    <div class="stat-value" id="statTotal">0</div>
-                    <div class="stat-label">Total Lines</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="statProcessed">0</div>
-                    <div class="stat-label">Processed</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="statDelay">1s</div>
-                    <div class="stat-label">Next Delay</div>
-                </div>
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value" id="statTotal">0</div>
+                <div class="stat-label">Total Sentences</div>
             </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statProcessed">0</div>
+                <div class="stat-label">Processed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statDelay">1s</div>
+                <div class="stat-label">Next Delay</div>
+            </div>
+        </div>
 
-            <div id="output">
-                <div class="log-line">⏳ Ready to upload file...</div>
+        <div id="output">
+            <div class="sentence-item">
+                ⏳ Ready to process... Upload a text file
             </div>
+        </div>
 
-            <div id="downloadBtn" class="download-section" onclick="downloadFile()">
-                <h2>📥 Download Processed File</h2>
-                <p>Click here to download (All lines processed!)</p>
-            </div>
+        <div id="downloadBtn" class="download-btn" onclick="downloadFile()">
+            📥 Download Processed File
         </div>
     </div>
 
@@ -214,7 +242,7 @@
             // Clear previous
             if (statusInterval) clearInterval(statusInterval);
             downloadBtn.classList.remove('active');
-            output.innerHTML = '<div class="log-line">📤 Uploading file...</div>';
+            output.innerHTML = '<div class="sentence-item">📤 Uploading file...</div>';
 
             const formData = new FormData();
             formData.append('file', file);
@@ -229,18 +257,21 @@
                 
                 if (data.success) {
                     currentProcessId = data.processId;
-                    statTotal.textContent = data.totalLines;
+                    statTotal.textContent = data.totalSentences;
                     statProcessed.textContent = '0';
                     statDelay.textContent = '1s';
                     
-                    output.innerHTML += `<div class="log-line">✅ File uploaded: ${data.totalLines} lines found</div>`;
-                    output.innerHTML += `<div class="log-line">🚀 Processing started with 1s increments...</div>`;
+                    output.innerHTML += `<div class="sentence-item">
+                        ✅ File uploaded: ${data.totalSentences} sentences found
+                    </div>`;
+                    output.innerHTML += `<div class="sentence-item">
+                        🚀 Processing started with 1s increments...
+                    </div>`;
                     
-                    // Start checking status
                     startStatusCheck(data.processId);
                 }
             } catch (error) {
-                output.innerHTML += `<div class="log-line">❌ Error: ${error.message}</div>`;
+                output.innerHTML += `<div class="sentence-item">❌ Error: ${error.message}</div>`;
             }
         });
 
@@ -253,24 +284,37 @@
                     statProcessed.textContent = data.processed;
                     
                     // Update next delay
-                    const nextDelay = data.processed + 1;
-                    statDelay.textContent = nextDelay > data.totalLines ? 'Done!' : nextDelay + 's';
+                    if (data.processed < data.totalSentences) {
+                        statDelay.textContent = (data.processed + 1) + 's';
+                    } else {
+                        statDelay.textContent = 'Done!';
+                    }
                     
-                    // Show in output
+                    // Show latest processed sentence
                     if (data.results && data.results.length > 0) {
                         const lastResult = data.results[data.results.length - 1];
-                        output.innerHTML += `<div class="log-line">
-                            <span class="delay-badge">⏱️ ${lastResult.delay}s</span>
-                            📝 Line ${lastResult.lineNumber}: ${lastResult.content.substring(0, 70)}...
-                        </div>`;
-                        output.scrollTop = output.scrollHeight;
+                        
+                        // Check if already displayed
+                        const lastDisplayed = output.lastElementChild;
+                        if (!lastDisplayed.innerHTML.includes(`Sentence #${lastResult.sentenceNumber}`)) {
+                            output.innerHTML += `<div class="sentence-item">
+                                <span class="delay-badge">⏱️ ${lastResult.delay}s</span>
+                                <strong>Sentence #${lastResult.sentenceNumber}</strong>
+                                <div class="sentence-text">
+                                    ${lastResult.content.substring(0, 150)}${lastResult.content.length > 150 ? '...' : ''}
+                                </div>
+                            </div>`;
+                            output.scrollTop = output.scrollHeight;
+                        }
                     }
                     
                     // Check if completed
                     if (data.status === 'completed') {
                         clearInterval(statusInterval);
                         statDelay.textContent = 'Done!';
-                        output.innerHTML += `<div class="log-line">🎉 All ${data.totalLines} lines processed!</div>`;
+                        output.innerHTML += `<div class="sentence-item" style="border-left-color: #48bb78;">
+                            🎉 All ${data.totalSentences} sentences processed successfully!
+                        </div>`;
                         downloadBtn.classList.add('active');
                     }
                     
@@ -285,9 +329,9 @@
             
             try {
                 window.open(`/api/download/${currentProcessId}`, '_blank');
-                output.innerHTML += `<div class="log-line">📥 Download started...</div>`;
+                output.innerHTML += `<div class="sentence-item">📥 Download started...</div>`;
             } catch (error) {
-                output.innerHTML += `<div class="log-line">❌ Download failed: ${error.message}</div>`;
+                output.innerHTML += `<div class="sentence-item">❌ Download failed: ${error.message}</div>`;
             }
         }
     </script>
