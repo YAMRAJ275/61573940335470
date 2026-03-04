@@ -3,11 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>File Text Processor</title>
+    <title>Fire.js Style Processor</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Segoe UI', sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             padding: 20px;
@@ -17,83 +16,126 @@
             margin: 0 auto;
             background: white;
             border-radius: 10px;
-            padding: 20px;
+            padding: 25px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.3);
         }
-        h1 { text-align: center; color: #4a5568; margin-bottom: 20px; }
-        .formula {
+        .fire-header {
+            background: #ff6b6b;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+        .formula-box {
             background: #f7fafc;
             padding: 15px;
-            border-radius: 5px;
+            border-radius: 8px;
             text-align: center;
             font-family: monospace;
-            font-size: 18px;
             margin-bottom: 20px;
-            border-left: 4px solid #667eea;
+            border-left: 4px solid #ff6b6b;
         }
         .upload-box {
             border: 2px dashed #cbd5e0;
-            padding: 20px;
+            padding: 30px;
             text-align: center;
-            border-radius: 5px;
-            margin-bottom: 20px;
+            border-radius: 8px;
             cursor: pointer;
+            transition: all 0.3s;
         }
-        .upload-box:hover { border-color: #667eea; }
-        #fileInfo { margin: 10px 0; color: #718096; }
-        .stats {
-            display: flex;
-            justify-content: space-around;
-            margin: 20px 0;
-            padding: 15px;
+        .upload-box:hover {
+            border-color: #ff6b6b;
+            background: #fff5f5;
+        }
+        #fileInfo {
+            margin: 15px 0;
+            padding: 10px;
             background: #f7fafc;
             border-radius: 5px;
         }
-        .stat { text-align: center; }
-        .stat-value { font-size: 24px; font-weight: bold; color: #4a5568; }
-        .stat-label { font-size: 12px; color: #718096; }
+        .stats {
+            display: flex;
+            justify-content: space-between;
+            margin: 20px 0;
+            padding: 15px;
+            background: #f7fafc;
+            border-radius: 8px;
+        }
+        .stat {
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4a5568;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #718096;
+        }
         #output {
             background: #1a202c;
-            color: white;
+            color: #fff;
             padding: 15px;
-            border-radius: 5px;
+            border-radius: 8px;
             min-height: 200px;
             max-height: 400px;
             overflow-y: auto;
             font-family: monospace;
             margin: 20px 0;
+            white-space: pre-wrap;
         }
-        .log-item {
+        .log-line {
             padding: 8px;
             margin: 5px 0;
             border-bottom: 1px solid #2d3748;
+            font-size: 13px;
         }
-        .delay { color: #48bb78; font-weight: bold; }
+        .delay {
+            color: #48bb78;
+            font-weight: bold;
+        }
+        .fire-badge {
+            background: #ff6b6b;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            margin-left: 8px;
+        }
         .download-btn {
             background: #48bb78;
             color: white;
             padding: 15px;
             text-align: center;
-            border-radius: 5px;
+            border-radius: 8px;
             cursor: pointer;
             display: none;
+            font-weight: bold;
         }
-        .download-btn.active { display: block; }
+        .download-btn.active {
+            display: block;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>📄 File Text Processor</h1>
-        
-        <div class="formula">
-            <code>setTimeout(() => {{a({{body: "file text"}})}}, delay);</code><br>
-            <small>delay = line_number × 1000ms (1s, 2s, 3s...)</small>
+        <div class="fire-header">
+            🔥 FIRE.JS STYLE PROCESSOR
+        </div>
+
+        <div class="formula-box">
+            <strong>FORMULA:</strong> delay = line_number × 1000ms<br>
+            <small>1s, 2s, 3s, 4s... (Exactly like fire.js)</small>
         </div>
 
         <div class="upload-box" onclick="document.getElementById('fileInput').click()">
             <input type="file" id="fileInput" accept=".txt" style="display: none;">
-            <span>📁 Click to upload text file (Max 80MB)</span>
+            <span>📁 Click to upload .txt file (Max 80MB)</span>
         </div>
+        
         <div id="fileInfo">No file selected</div>
 
         <div class="stats">
@@ -107,16 +149,20 @@
             </div>
             <div class="stat">
                 <div class="stat-value" id="statDelay">1s</div>
-                <div class="stat-label">Current Delay</div>
+                <div class="stat-label">Next Delay</div>
             </div>
         </div>
 
         <div id="output">
-            <div class="log-item">⏳ Waiting for file...</div>
+            <div class="log-line">⏳ Ready to process file...</div>
         </div>
 
         <div id="downloadBtn" class="download-btn" onclick="downloadFile()">
             📥 Download Processed File
+        </div>
+
+        <div style="text-align: center; margin-top: 15px; font-size: 12px; color: #718096;">
+            ✅ Sabhi symbols support: । ? ! , . ; : " ' @ # $ % ^ & * ( ) - + = [ ] { } \ | / 
         </div>
     </div>
 
@@ -134,13 +180,17 @@
             document.getElementById('downloadBtn').classList.remove('active');
             
             const output = document.getElementById('output');
-            output.innerHTML = '<div class="log-item">📤 Uploading...</div>';
+            output.innerHTML = '<div class="log-line">📤 Uploading...</div>';
 
             const formData = new FormData();
             formData.append('file', file);
 
             try {
-                const res = await fetch('/api/upload', { method: 'POST', body: formData });
+                const res = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
                 const data = await res.json();
                 
                 if (data.success) {
@@ -149,13 +199,13 @@
                     document.getElementById('statProcessed').textContent = '0';
                     document.getElementById('statDelay').textContent = '1s';
                     
-                    output.innerHTML += `<div class="log-item">✅ ${data.totalLines} lines found</div>`;
-                    output.innerHTML += `<div class="log-item">🚀 Processing: 1s, 2s, 3s...</div>`;
+                    output.innerHTML += `<div class="log-line">✅ ${data.totalLines} lines loaded</div>`;
+                    output.innerHTML += `<div class="log-line">🔥 Fire.js formula: 1s, 2s, 3s...</div>`;
                     
                     startStatusCheck(data.processId);
                 }
             } catch (error) {
-                output.innerHTML += `<div class="log-item">❌ Error: ${error.message}</div>`;
+                output.innerHTML += `<div class="log-line">❌ Error: ${error.message}</div>`;
             }
         });
 
@@ -177,10 +227,9 @@
                         const last = data.results[data.results.length - 1];
                         const output = document.getElementById('output');
                         
-                        // Yeh hai aapka setTimeout with file text
-                        output.innerHTML += `<div class="log-item">
+                        output.innerHTML += `<div class="log-line">
                             <span class="delay">⏱️ ${last.delay}s</span>
-                            Line ${last.lineNumber}: ${last.content.substring(0, 100)}...
+                            Line ${last.lineNumber}: ${last.content}
                         </div>`;
                         output.scrollTop = output.scrollHeight;
                     }
@@ -189,7 +238,7 @@
                         clearInterval(statusInterval);
                         document.getElementById('statDelay').textContent = 'Done!';
                         document.getElementById('output').innerHTML += 
-                            '<div class="log-item">✅ All lines processed!</div>';
+                            '<div class="log-line">✅ All lines processed with fire.js formula!</div>';
                         document.getElementById('downloadBtn').classList.add('active');
                     }
                     
