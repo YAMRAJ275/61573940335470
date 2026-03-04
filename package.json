@@ -1,5 +1,5 @@
 {
-  "name": "file-text-processor",
+  "name": "incremental-delay-processor",
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
