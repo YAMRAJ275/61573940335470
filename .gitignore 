@@ -3,4 +3,3 @@ uploads/
 processed/
 .env
 .DS_Store
-npm-debug.log
