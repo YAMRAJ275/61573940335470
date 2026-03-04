@@ -36,10 +36,8 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         const file = req.file;
         const content = await fs.readFile(file.path, 'utf8');
         
-        // Split into sentences (।, ., ?, !, \n से)
-        const sentences = content
-            .split(/(?<=[.!?।])\s+|\n+/)
-            .filter(s => s.trim().length > 0);
+        // Split into lines
+        const lines = content.split('\n').filter(line => line.trim() !== '');
         
         const processId = Date.now() + '-' + Math.random().toString(36).substr(2, 9);
         
@@ -47,51 +45,52 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         activeProcesses.set(processId, {
             id: processId,
             filename: file.originalname,
-            sentences: sentences,
-            totalSentences: sentences.length,
+            lines: lines,
+            totalLines: lines.length,
             processed: 0,
             results: [],
             status: 'processing',
             startTime: new Date()
         });
 
-        // ⏱️ यहाँ हर sentence को अलग delay पर process करेंगे
-        sentences.forEach((sentence, index) => {
-            const delay = (index + 1) * 1000; // 1s, 2s, 3s, 4s...
+        // 🔥 YE LO AAPKA REQUESTED CODE:
+        // setTimeout(() => {a({body: "file text hoga yh "})} , 1000);
+        // aur seconds bhadte jayenge
+        
+        lines.forEach((line, index) => {
+            const seconds = index + 1; // 1, 2, 3, 4, 5...
+            const delay = seconds * 1000; // 1000, 2000, 3000...
             
             setTimeout(() => {
                 const currentProcess = activeProcesses.get(processId);
                 if (!currentProcess) return;
                 
-                // 📝 a() function call - हर sentence के लिए
+                // 📝 a() function call with file text
                 const result = a({
-                    body: sentence,
-                    sentenceNumber: index + 1,
-                    totalSentences: sentences.length,
-                    delay: delay / 1000
+                    body: line,                    // "file text hoga yh" ki jagah asli file text
+                    lineNumber: seconds,
+                    totalLines: lines.length,
+                    delay: seconds                  // seconds: 1, 2, 3, 4...
                 });
                 
                 // Store result
                 currentProcess.results.push({
-                    sentenceNumber: index + 1,
-                    content: sentence,
-                    delay: delay / 1000,
+                    lineNumber: seconds,
+                    content: line,
+                    delay: seconds,
                     processedAt: new Date().toISOString()
                 });
                 
                 currentProcess.processed++;
                 
-                console.log(`✅ Sentence ${index + 1}/${sentences.length} - ${delay/1000}s: ${sentence.substring(0, 50)}...`);
+                console.log(`✅ Line ${seconds}/${lines.length} - ${seconds}s: ${line.substring(0, 50)}...`);
                 
-                // Check if all sentences processed
-                if (currentProcess.processed === sentences.length) {
+                // Check if all lines processed
+                if (currentProcess.processed === lines.length) {
                     currentProcess.status = 'completed';
                     currentProcess.completedAt = new Date();
-                    
-                    // Save processed file
                     saveProcessedFile(processId);
-                    
-                    console.log(`🎉 All ${sentences.length} sentences processed!`);
+                    console.log(`🎉 All ${lines.length} lines processed!`);
                 }
             }, delay);
         });
@@ -100,8 +99,8 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
             success: true,
             processId: processId,
             filename: file.originalname,
-            totalSentences: sentences.length,
-            message: 'Processing started with 1s increments'
+            totalLines: lines.length,
+            message: 'Processing started - seconds badhte jayenge!'
         });
 
     } catch (error) {
@@ -109,23 +108,25 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
     }
 });
 
-// 🔧 a() function - यहाँ अपना logic लिखें
+// 🔧 a() function - jahan file text use hoga
 function a(data) {
     console.log(`
     ╔════════════════════════════════╗
-    ║ Sentence #${data.sentenceNumber} of ${data.totalSentences} ║
-    ║ Delay: ${data.delay}s                ║
+    ║ Line #${data.lineNumber} of ${data.totalLines} ║
+    ║ Delay: ${data.delay} second(s)        ║
     ╚════════════════════════════════╝
     Content: ${data.body.substring(0, 100)}
     `);
     
-    // आपकी custom functionality
-    // API call, database save, etc.
+    // 📝 Yeh hai aapka SETTIMEOUT with file text
+    // setTimeout(() => {a({body: "file text hoga yh "})} , 1000);
+    // Yahan "file text hoga yh" ki jagah asli file ka text aa raha
     
     return {
         status: 'processed',
-        sentenceNumber: data.sentenceNumber,
-        delay: data.delay
+        lineNumber: data.lineNumber,
+        delay: data.delay,
+        content: data.body
     };
 }
 
@@ -138,19 +139,17 @@ async function saveProcessedFile(processId) {
     
     let output = '';
     output += '='.repeat(60) + '\n';
-    output += '📝 PROCESSED SENTENCES\n';
+    output += '📝 PROCESSED FILE\n';
     output += '='.repeat(60) + '\n\n';
+    output += `Original File: ${process.filename}\n`;
+    output += `Total Lines: ${process.totalLines}\n`;
+    output += `Completed At: ${process.completedAt}\n\n`;
+    output += '-'.repeat(60) + '\n\n';
     
     process.results.forEach(r => {
-        output += `[Sentence ${r.sentenceNumber} - ${r.delay}s]\n`;
-        output += `${r.content}\n`;
+        output += `[Line ${r.lineNumber} - ${r.delay}s] ${r.content}\n`;
         output += '-'.repeat(40) + '\n\n';
     });
-    
-    output += '='.repeat(60) + '\n';
-    output += `✅ Total Sentences: ${process.totalSentences}\n`;
-    output += `✅ Completed at: ${process.completedAt}\n`;
-    output += '='.repeat(60) + '\n';
     
     await fs.writeFile(outputPath, output);
     process.outputPath = outputPath;
@@ -174,7 +173,6 @@ app.get('/api/download/:processId', async (req, res) => {
         
         res.download(filePath, filename, async (err) => {
             if (err) console.error('Download error:', err);
-            // Clean up after 5 seconds
             setTimeout(() => fs.remove(filePath).catch(console.error), 5000);
         });
         
@@ -194,11 +192,11 @@ app.get('/api/status/:processId', (req, res) => {
     res.json({
         processId: process.id,
         filename: process.filename,
-        totalSentences: process.totalSentences,
+        totalLines: process.totalLines,
         processed: process.processed,
         status: process.status,
-        progress: ((process.processed / process.totalSentences) * 100).toFixed(2) + '%',
-        results: process.results
+        progress: ((process.processed / process.totalLines) * 100).toFixed(2) + '%',
+        results: process.results.slice(-5)
     });
 });
 
