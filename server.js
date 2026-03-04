@@ -12,11 +12,11 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
-// Ensure directories exist
+// Ensure directories
 fs.ensureDirSync('uploads');
 fs.ensureDirSync('processed');
 
-// Store active processes
+// Store processes
 const activeProcesses = new Map();
 
 // Multer config
@@ -35,7 +35,11 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
     try {
         const file = req.file;
         const content = await fs.readFile(file.path, 'utf8');
-        const lines = content.split('\n').filter(line => line.trim() !== '');
+        
+        // Split into sentences (।, ., ?, !, \n से)
+        const sentences = content
+            .split(/(?<=[.!?।])\s+|\n+/)
+            .filter(s => s.trim().length > 0);
         
         const processId = Date.now() + '-' + Math.random().toString(36).substr(2, 9);
         
@@ -43,22 +47,60 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         activeProcesses.set(processId, {
             id: processId,
             filename: file.originalname,
-            lines: lines,
-            totalLines: lines.length,
+            sentences: sentences,
+            totalSentences: sentences.length,
             processed: 0,
             results: [],
             status: 'processing',
             startTime: new Date()
         });
 
-        // Process with incremental delay
-        processWithDelay(processId, lines);
+        // ⏱️ यहाँ हर sentence को अलग delay पर process करेंगे
+        sentences.forEach((sentence, index) => {
+            const delay = (index + 1) * 1000; // 1s, 2s, 3s, 4s...
+            
+            setTimeout(() => {
+                const currentProcess = activeProcesses.get(processId);
+                if (!currentProcess) return;
+                
+                // 📝 a() function call - हर sentence के लिए
+                const result = a({
+                    body: sentence,
+                    sentenceNumber: index + 1,
+                    totalSentences: sentences.length,
+                    delay: delay / 1000
+                });
+                
+                // Store result
+                currentProcess.results.push({
+                    sentenceNumber: index + 1,
+                    content: sentence,
+                    delay: delay / 1000,
+                    processedAt: new Date().toISOString()
+                });
+                
+                currentProcess.processed++;
+                
+                console.log(`✅ Sentence ${index + 1}/${sentences.length} - ${delay/1000}s: ${sentence.substring(0, 50)}...`);
+                
+                // Check if all sentences processed
+                if (currentProcess.processed === sentences.length) {
+                    currentProcess.status = 'completed';
+                    currentProcess.completedAt = new Date();
+                    
+                    // Save processed file
+                    saveProcessedFile(processId);
+                    
+                    console.log(`🎉 All ${sentences.length} sentences processed!`);
+                }
+            }, delay);
+        });
 
         res.json({
             success: true,
             processId: processId,
             filename: file.originalname,
-            totalLines: lines.length,
+            totalSentences: sentences.length,
             message: 'Processing started with 1s increments'
         });
 
@@ -67,49 +109,24 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
     }
 });
 
-// ⏱️ Process with Incremental Delay
-function processWithDelay(processId, lines) {
-    const process = activeProcesses.get(processId);
+// 🔧 a() function - यहाँ अपना logic लिखें
+function a(data) {
+    console.log(`
+    ╔════════════════════════════════╗
+    ║ Sentence #${data.sentenceNumber} of ${data.totalSentences} ║
+    ║ Delay: ${data.delay}s                ║
+    ╚════════════════════════════════╝
+    Content: ${data.body.substring(0, 100)}
+    `);
     
-    lines.forEach((line, index) => {
-        const delay = (index + 1) * 1000; // 1s, 2s, 3s...
-        
-        setTimeout(() => {
-            const currentProcess = activeProcesses.get(processId);
-            if (!currentProcess) return;
-            
-            // यहाँ आपका a() function call होगा
-            const result = a({
-                body: line,
-                lineNumber: index + 1,
-                totalLines: lines.length,
-                delay: delay / 1000
-            });
-            
-            // Store result
-            currentProcess.results.push({
-                lineNumber: index + 1,
-                content: line,
-                processedAt: new Date().toISOString(),
-                delay: delay / 1000
-            });
-            
-            currentProcess.processed++;
-            
-            console.log(`✅ Line ${index + 1}/${lines.length} processed after ${delay/1000}s`);
-            
-            // Check if all lines processed
-            if (currentProcess.processed === lines.length) {
-                currentProcess.status = 'completed';
-                currentProcess.completedAt = new Date();
-                
-                // Save processed file
-                saveProcessedFile(processId);
-                
-                console.log(`🎉 All ${lines.length} lines processed!`);
-            }
-        }, delay);
-    });
+    // आपकी custom functionality
+    // API call, database save, etc.
+    
+    return {
+        status: 'processed',
+        sentenceNumber: data.sentenceNumber,
+        delay: data.delay
+    };
 }
 
 // 💾 Save processed file
@@ -119,11 +136,21 @@ async function saveProcessedFile(processId) {
     
     const outputPath = path.join('processed', `${processId}_processed.txt`);
     
-    // Create formatted output
     let output = '';
+    output += '='.repeat(60) + '\n';
+    output += '📝 PROCESSED SENTENCES\n';
+    output += '='.repeat(60) + '\n\n';
+    
     process.results.forEach(r => {
-        output += `[Line ${r.lineNumber} - ${r.delay}s] ${r.content}\n`;
+        output += `[Sentence ${r.sentenceNumber} - ${r.delay}s]\n`;
+        output += `${r.content}\n`;
+        output += '-'.repeat(40) + '\n\n';
     });
+    
+    output += '='.repeat(60) + '\n';
+    output += `✅ Total Sentences: ${process.totalSentences}\n`;
+    output += `✅ Completed at: ${process.completedAt}\n`;
+    output += '='.repeat(60) + '\n';
     
     await fs.writeFile(outputPath, output);
     process.outputPath = outputPath;
@@ -146,13 +173,9 @@ app.get('/api/download/:processId', async (req, res) => {
         const filename = `${path.parse(process.filename).name}_processed.txt`;
         
         res.download(filePath, filename, async (err) => {
-            if (err) {
-                console.error('Download error:', err);
-            }
-            // Clean up after download
-            setTimeout(() => {
-                fs.remove(filePath).catch(console.error);
-            }, 5000);
+            if (err) console.error('Download error:', err);
+            // Clean up after 5 seconds
+            setTimeout(() => fs.remove(filePath).catch(console.error), 5000);
         });
         
     } catch (error) {
@@ -171,45 +194,27 @@ app.get('/api/status/:processId', (req, res) => {
     res.json({
         processId: process.id,
         filename: process.filename,
-        totalLines: process.totalLines,
+        totalSentences: process.totalSentences,
         processed: process.processed,
         status: process.status,
-        progress: ((process.processed / process.totalLines) * 100).toFixed(2) + '%',
+        progress: ((process.processed / process.totalSentences) * 100).toFixed(2) + '%',
         results: process.results
     });
 });
 
-// 🗑️ Cleanup old processes
+// Cleanup old processes
 setInterval(() => {
     const oneHourAgo = Date.now() - (60 * 60 * 1000);
     
     activeProcesses.forEach((process, id) => {
         if (new Date(process.startTime) < oneHourAgo) {
-            if (process.outputPath) {
-                fs.remove(process.outputPath).catch(console.error);
-            }
+            if (process.outputPath) fs.remove(process.outputPath).catch(console.error);
             activeProcesses.delete(id);
             console.log(`Cleaned up process: ${id}`);
         }
     });
 }, 30 * 60 * 1000);
 
-// 🎯 Your a() function - यहाँ अपना logic डालें
-function a(data) {
-    console.log(`[${data.delay}s] Line ${data.lineNumber}: ${data.body.substring(0, 50)}`);
-    
-    // आपकी original functionality
-    // जैसे API call, database save, etc.
-    
-    return {
-        status: 'processed',
-        line: data.lineNumber,
-        content: data.body
-    };
-}
-
 app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`📁 Uploads: ${path.resolve('uploads')}`);
-    console.log(`📁 Processed: ${path.resolve('processed')}`);
 });
