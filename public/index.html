@@ -1,28 +1,295 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>File Upload</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Processor with Incremental Delay</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: #4a5568;
+            color: white;
+            padding: 25px;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        .upload-area {
+            padding: 30px;
+            background: #f7fafc;
+            border-bottom: 2px dashed #cbd5e0;
+        }
+        .file-input-wrapper {
+            position: relative;
+            width: 100%;
+            height: 60px;
+            background: white;
+            border: 2px solid #cbd5e0;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        #fileInput {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+            z-index: 2;
+        }
+        .file-label {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            background: white;
+            color: #4a5568;
+            font-weight: 500;
+            z-index: 1;
+            pointer-events: none;
+        }
+        .progress-panel {
+            padding: 25px;
+            background: #f7fafc;
+        }
+        #output {
+            background: #1a202c;
+            color: #fff;
+            padding: 15px;
+            border-radius: 10px;
+            min-height: 200px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            margin: 15px 0;
+        }
+        .log-line {
+            padding: 5px;
+            border-bottom: 1px solid #2d3748;
+            font-size: 13px;
+        }
+        .delay-badge {
+            background: #4299e1;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            margin-right: 8px;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+            margin: 15px 0;
+        }
+        .stat-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4a5568;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #718096;
+        }
+        .download-section {
+            background: #48bb78;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: none;
+        }
+        .download-section:hover {
+            background: #38a169;
+        }
+        .download-section.active {
+            display: block;
+        }
+        .btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .btn:hover {
+            background: #5a67d8;
+        }
+    </style>
 </head>
 <body>
-    <h1>📁 File Upload Server</h1>
-    <input type="file" id="fileInput">
-    <div id="output"></div>
-    
+    <div class="container">
+        <div class="header">
+            <h1>⏱️ Incremental Delay Processor</h1>
+            <p>Har line 1s, 2s, 3s... ke delay par process hogi</p>
+        </div>
+
+        <div class="upload-area">
+            <div class="file-input-wrapper">
+                <input type="file" id="fileInput" accept=".txt">
+                <div class="file-label">
+                    📁 Choose text file (Max 80MB)
+                </div>
+            </div>
+            <p id="fileInfo" style="margin-top:10px; color:#718096;">No file selected</p>
+        </div>
+
+        <div class="progress-panel">
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-value" id="statTotal">0</div>
+                    <div class="stat-label">Total Lines</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="statProcessed">0</div>
+                    <div class="stat-label">Processed</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="statDelay">1s</div>
+                    <div class="stat-label">Next Delay</div>
+                </div>
+            </div>
+
+            <div id="output">
+                <div class="log-line">⏳ Ready to upload file...</div>
+            </div>
+
+            <div id="downloadBtn" class="download-section" onclick="downloadFile()">
+                <h2>📥 Download Processed File</h2>
+                <p>Click here to download (All lines processed!)</p>
+            </div>
+        </div>
+    </div>
+
     <script>
-        document.getElementById('fileInput').addEventListener('change', async (e) => {
+        let currentProcessId = null;
+        let statusInterval = null;
+        
+        const fileInput = document.getElementById('fileInput');
+        const output = document.getElementById('output');
+        const fileInfo = document.getElementById('fileInfo');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const statTotal = document.getElementById('statTotal');
+        const statProcessed = document.getElementById('statProcessed');
+        const statDelay = document.getElementById('statDelay');
+
+        fileInput.addEventListener('change', async function(e) {
             const file = e.target.files[0];
+            if (!file) return;
+
+            fileInfo.textContent = `📄 ${file.name} (${(file.size/1024).toFixed(2)} KB)`;
+            
+            // Clear previous
+            if (statusInterval) clearInterval(statusInterval);
+            downloadBtn.classList.remove('active');
+            output.innerHTML = '<div class="log-line">📤 Uploading file...</div>';
+
             const formData = new FormData();
             formData.append('file', file);
-            
-            const res = await fetch('/api/upload', {
-                method: 'POST',
-                body: formData
-            });
-            
-            const data = await res.json();
-            document.getElementById('output').innerHTML = 
-                `✅ ${data.filename} uploaded! ${data.totalLines} lines found.`;
+
+            try {
+                const res = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await res.json();
+                
+                if (data.success) {
+                    currentProcessId = data.processId;
+                    statTotal.textContent = data.totalLines;
+                    statProcessed.textContent = '0';
+                    statDelay.textContent = '1s';
+                    
+                    output.innerHTML += `<div class="log-line">✅ File uploaded: ${data.totalLines} lines found</div>`;
+                    output.innerHTML += `<div class="log-line">🚀 Processing started with 1s increments...</div>`;
+                    
+                    // Start checking status
+                    startStatusCheck(data.processId);
+                }
+            } catch (error) {
+                output.innerHTML += `<div class="log-line">❌ Error: ${error.message}</div>`;
+            }
         });
+
+        function startStatusCheck(processId) {
+            statusInterval = setInterval(async () => {
+                try {
+                    const res = await fetch(`/api/status/${processId}`);
+                    const data = await res.json();
+                    
+                    statProcessed.textContent = data.processed;
+                    
+                    // Update next delay
+                    const nextDelay = data.processed + 1;
+                    statDelay.textContent = nextDelay > data.totalLines ? 'Done!' : nextDelay + 's';
+                    
+                    // Show in output
+                    if (data.results && data.results.length > 0) {
+                        const lastResult = data.results[data.results.length - 1];
+                        output.innerHTML += `<div class="log-line">
+                            <span class="delay-badge">⏱️ ${lastResult.delay}s</span>
+                            📝 Line ${lastResult.lineNumber}: ${lastResult.content.substring(0, 70)}...
+                        </div>`;
+                        output.scrollTop = output.scrollHeight;
+                    }
+                    
+                    // Check if completed
+                    if (data.status === 'completed') {
+                        clearInterval(statusInterval);
+                        statDelay.textContent = 'Done!';
+                        output.innerHTML += `<div class="log-line">🎉 All ${data.totalLines} lines processed!</div>`;
+                        downloadBtn.classList.add('active');
+                    }
+                    
+                } catch (error) {
+                    console.error('Status check error:', error);
+                }
+            }, 1000);
+        }
+
+        async function downloadFile() {
+            if (!currentProcessId) return;
+            
+            try {
+                window.open(`/api/download/${currentProcessId}`, '_blank');
+                output.innerHTML += `<div class="log-line">📥 Download started...</div>`;
+            } catch (error) {
+                output.innerHTML += `<div class="log-line">❌ Download failed: ${error.message}</div>`;
+            }
+        }
     </script>
 </body>
 </html>
