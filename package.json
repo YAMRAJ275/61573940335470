@@ -1,18 +1,352 @@
-{
-  "name": "file-processor-server",
-  "version": "1.0.0",
-  "description": "File upload with incremental delay",
-  "main": "server.js",
-  "scripts": {
-    "start": "node server.js"
-  },
-  "engines": {
-    "node": "20.x" 
-  },
-  "dependencies": {
-    "express": "^4.18.2",
-    "multer": "^1.4.5-lts.1",
-    "cors": "^2.8.5",
-    "fs-extra": "^11.1.1"
-  }
-}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Text Processor - Incremental Delay</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: #4a5568;
+            color: white;
+            padding: 25px;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        .formula-bar {
+            background: #2d3748;
+            color: #fbbf24;
+            padding: 15px;
+            text-align: center;
+            font-family: monospace;
+            font-size: 18px;
+            border-bottom: 2px solid #667eea;
+        }
+        .upload-area {
+            padding: 30px;
+            background: #f7fafc;
+        }
+        .file-input-wrapper {
+            position: relative;
+            width: 100%;
+            height: 60px;
+            background: white;
+            border: 2px solid #cbd5e0;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        #fileInput {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+            z-index: 2;
+        }
+        .file-label {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            background: white;
+            color: #4a5568;
+            font-weight: 500;
+            z-index: 1;
+            pointer-events: none;
+        }
+        .file-info {
+            margin-top: 10px;
+            color: #718096;
+            font-size: 14px;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            padding: 20px;
+            background: #f7fafc;
+        }
+        .stat-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #4a5568;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #718096;
+            margin-top: 5px;
+        }
+        #output {
+            background: #1a202c;
+            color: #fff;
+            padding: 20px;
+            min-height: 300px;
+            max-height: 500px;
+            overflow-y: auto;
+            font-family: monospace;
+            margin: 0 20px 20px 20px;
+            border-radius: 10px;
+        }
+        .line-item {
+            padding: 12px;
+            margin: 8px 0;
+            background: #2d3748;
+            border-left: 4px solid #4299e1;
+            border-radius: 5px;
+            animation: slideIn 0.3s ease;
+        }
+        .delay-badge {
+            background: #48bb78;
+            color: white;
+            padding: 3px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-right: 10px;
+            display: inline-block;
+        }
+        .line-text {
+            color: #e2e8f0;
+            margin-top: 8px;
+            padding-left: 10px;
+            border-left: 2px solid #4a5568;
+        }
+        .download-btn {
+            background: #48bb78;
+            color: white;
+            padding: 20px;
+            margin: 0 20px 20px 20px;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: bold;
+            display: none;
+            transition: all 0.3s;
+        }
+        .download-btn:hover {
+            background: #38a169;
+            transform: scale(1.02);
+        }
+        .download-btn.active {
+            display: block;
+        }
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .formula-tag {
+            background: #fbbf24;
+            color: #744210;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            margin-left: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📄 File Text Processor</h1>
+            <p>Har line 1 second ke increment par process hogi</p>
+        </div>
+
+        <div class="formula-bar">
+            <span>📐 Formula: </span>
+            <strong>delay = line_number × 1000ms</strong>
+            <span class="formula-tag">1s, 2s, 3s, 4s...</span>
+        </div>
+
+        <div class="upload-area">
+            <div class="file-input-wrapper">
+                <input type="file" id="fileInput" accept=".txt">
+                <div class="file-label">
+                    📁 Choose text file (Max 80MB)
+                </div>
+            </div>
+            <div class="file-info" id="fileInfo">No file selected</div>
+        </div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value" id="statTotal">0</div>
+                <div class="stat-label">Total Lines</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statProcessed">0</div>
+                <div class="stat-label">Processed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statDelay">1s</div>
+                <div class="stat-label">Next Delay</div>
+            </div>
+        </div>
+
+        <div id="output">
+            <div class="line-item">
+                ⏳ Ready to process... Upload a text file
+            </div>
+        </div>
+
+        <div id="downloadBtn" class="download-btn" onclick="downloadFile()">
+            📥 Download Processed File
+        </div>
+    </div>
+
+    <script>
+        let currentProcessId = null;
+        let statusInterval = null;
+        
+        const fileInput = document.getElementById('fileInput');
+        const output = document.getElementById('output');
+        const fileInfo = document.getElementById('fileInfo');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const statTotal = document.getElementById('statTotal');
+        const statProcessed = document.getElementById('statProcessed');
+        const statDelay = document.getElementById('statDelay');
+
+        fileInput.addEventListener('change', async function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            fileInfo.textContent = `📄 ${file.name} (${(file.size/1024).toFixed(2)} KB)`;
+            
+            // Clear previous process
+            if (statusInterval) clearInterval(statusInterval);
+            downloadBtn.classList.remove('active');
+            output.innerHTML = '<div class="line-item">📤 Uploading file...</div>';
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const res = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await res.json();
+                
+                if (data.success) {
+                    currentProcessId = data.processId;
+                    statTotal.textContent = data.totalLines;
+                    statProcessed.textContent = '0';
+                    statDelay.textContent = '1s';
+                    
+                    output.innerHTML += `<div class="line-item">
+                        ✅ File uploaded: ${data.totalLines} lines found
+                    </div>`;
+                    output.innerHTML += `<div class="line-item">
+                        🚀 Processing started with 1s increments...
+                    </div>`;
+                    
+                    startStatusCheck(data.processId);
+                }
+            } catch (error) {
+                output.innerHTML += `<div class="line-item">❌ Error: ${error.message}</div>`;
+            }
+        });
+
+        function startStatusCheck(processId) {
+            statusInterval = setInterval(async () => {
+                try {
+                    const res = await fetch(`/api/status/${processId}`);
+                    const data = await res.json();
+                    
+                    statProcessed.textContent = data.processed;
+                    
+                    // Update next delay
+                    if (data.processed < data.totalLines) {
+                        statDelay.textContent = (data.processed + 1) + 's';
+                    } else {
+                        statDelay.textContent = 'Done!';
+                    }
+                    
+                    // Show latest processed line
+                    if (data.results && data.results.length > 0) {
+                        const lastResult = data.results[data.results.length - 1];
+                        
+                        // Check if already displayed
+                        const lastDisplayed = output.lastElementChild;
+                        if (!lastDisplayed.innerHTML.includes(`Line #${lastResult.lineNumber}`)) {
+                            output.innerHTML += `<div class="line-item">
+                                <span class="delay-badge">⏱️ ${lastResult.delay}s</span>
+                                <strong>Line #${lastResult.lineNumber}</strong>
+                                <span style="color: #9f7aea; margin-left: 10px;">
+                                    (Formula: ${lastResult.lineNumber} × 1000ms)
+                                </span>
+                                <div class="line-text">
+                                    ${lastResult.content.substring(0, 150)}${lastResult.content.length > 150 ? '...' : ''}
+                                </div>
+                            </div>`;
+                            output.scrollTop = output.scrollHeight;
+                        }
+                    }
+                    
+                    // Check if completed
+                    if (data.status === 'completed') {
+                        clearInterval(statusInterval);
+                        statDelay.textContent = 'Done!';
+                        output.innerHTML += `<div class="line-item" style="border-left-color: #48bb78;">
+                            🎉 All ${data.totalLines} lines processed successfully!
+                        </div>`;
+                        downloadBtn.classList.add('active');
+                    }
+                    
+                } catch (error) {
+                    console.error('Status check error:', error);
+                }
+            }, 1000);
+        }
+
+        async function downloadFile() {
+            if (!currentProcessId) return;
+            
+            try {
+                window.open(`/api/download/${currentProcessId}`, '_blank');
+                output.innerHTML += `<div class="line-item">📥 Download started...</div>`;
+            } catch (error) {
+                output.innerHTML += `<div class="line-item">❌ Download failed: ${error.message}</div>`;
+            }
+        }
+    </script>
+</body>
+</html>
