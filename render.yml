@@ -1,12 +1,37 @@
+# render.yml - Complete Configuration for Fire.js Style Server
+
 services:
+  # Web Service Definition
   - type: web
-    name: file-processor-server
+    name: firejs-processor-server
     runtime: node
     repo: https://github.com/YAMRAJ275/61573940335470
     branch: main
     plan: free
+    
+    # Build Settings
     buildCommand: npm install
     startCommand: npm start
+    
+    # Environment Variables
     envVars:
       - key: NODE_VERSION
         value: 20.18.0
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: MAX_FILE_SIZE
+        value: 83886080  # 80MB in bytes
+    
+    # Health Check
+    healthCheckPath: /
+    
+    # Auto Deploy
+    autoDeploy: true
+    
+    # Disk Storage (for uploaded files)
+    disk:
+      name: uploads
+      mountPath: /opt/render/project/src/uploads
+      sizeGB: 1
