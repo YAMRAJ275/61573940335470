@@ -16,7 +16,7 @@ app.use(express.static('public'));
 fs.ensureDirSync('uploads');
 fs.ensureDirSync('processed');
 
-// Store processes
+// Store active processes
 const activeProcesses = new Map();
 
 // Multer config
@@ -27,17 +27,29 @@ const storage = multer.diskStorage({
 
 const upload = multer({
     storage: storage,
-    limits: { fileSize: 80 * 1024 * 1024 }
+    limits: { fileSize: 80 * 1024 * 1024 }, // 80MB
+    fileFilter: (req, file, cb) => {
+        // Sirf .txt files allow
+        if (file.mimetype === 'text/plain' || file.originalname.endsWith('.txt')) {
+            cb(null, true);
+        } else {
+            cb(new Error('Only .txt files are allowed!'), false);
+        }
+    }
 });
 
-// 📤 Upload endpoint
+// 📤 Upload endpoint - FIRE.JS STYLE
 app.post('/api/upload', upload.single('file'), async (req, res) => {
     try {
         const file = req.file;
+        
+        // 🔥 File ka EXACT text padho - symbols ke saath
         const content = await fs.readFile(file.path, 'utf8');
         
-        // Split into lines
+        // Lines mein split karo - symbols preserve honge
         const lines = content.split('\n').filter(line => line.trim() !== '');
+        
+        console.log(`📁 Fire.js style - ${lines.length} lines loaded`);
         
         const processId = Date.now() + '-' + Math.random().toString(36).substr(2, 9);
         
@@ -52,40 +64,39 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
             status: 'processing'
         });
 
-        // 🔥 YOUR EXACT REQUIREMENT:
-        // setTimeout(() => {a({body: "पेस्ट करो"})} , 1000);
-        // Yahan "पेस्ट करो" ki jagah file ka text aa raha hai
-        // Aur 1000 har line ke saath badh raha hai (1000, 2000, 3000...)
-        
+        // 🔥 FIRE.JS EXACT FORMULA - har line ke saath delay badhega
         lines.forEach((line, index) => {
-            const delay = (index + 1) * 1000; // 1000, 2000, 3000...
+            // FORMULA: delay = (index + 1) * 1000
+            // Yeh exactly fire.js jaisa hai
+            const delay = (index + 1) * 1000; // 1000, 2000, 3000, 4000...
             
             setTimeout(() => {
                 const currentProcess = activeProcesses.get(processId);
                 if (!currentProcess) return;
                 
-                // 📝 a() function call with file text
+                // 📝 Fire.js style a() function call
                 a({
-                    body: line,                    // "पेस्ट करो" ki jagah file ka text
+                    body: line,                    // Original line with symbols
                     lineNumber: index + 1,
                     totalLines: lines.length,
-                    delay: delay / 1000
+                    delay: delay / 1000            // Seconds mein delay
                 });
                 
                 // Store result
                 currentProcess.results.push({
                     lineNumber: index + 1,
-                    content: line,
+                    content: line,                  // Exact original text
                     delay: delay / 1000
                 });
                 
                 currentProcess.processed++;
-                console.log(`✅ Line ${index + 1}: ${line.substring(0, 50)}... (${delay/1000}s)`);
+                console.log(`✅ [${delay/1000}s] Line ${index + 1}/${lines.length}`);
                 
                 // Check if all done
                 if (currentProcess.processed === lines.length) {
                     currentProcess.status = 'completed';
                     saveProcessedFile(processId);
+                    console.log(`🎉 All ${lines.length} lines processed!`);
                 }
             }, delay);
         });
@@ -93,19 +104,33 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         res.json({
             success: true,
             processId: processId,
+            filename: file.originalname,
             totalLines: lines.length,
-            message: 'Processing started - 1s, 2s, 3s...'
+            message: 'Fire.js style processing started!'
         });
 
     } catch (error) {
+        console.error('Upload error:', error);
         res.status(500).json({ error: error.message });
     }
 });
 
-// 🔧 a() function
+// 🔧 a() function - EXACTLY like fire.js
 function a(data) {
-    console.log(`Line ${data.lineNumber}: ${data.body.substring(0, 100)} (${data.delay}s)`);
-    return { status: 'processed' };
+    console.log(`
+    ╔════════════════════════════════╗
+    ║ Line ${data.lineNumber}/${data.totalLines} ║
+    ║ Delay: ${data.delay}s                ║
+    ╚════════════════════════════════╝
+    ${data.body.substring(0, 100)}...
+    `);
+    
+    return {
+        status: 'processed',
+        lineNumber: data.lineNumber,
+        delay: data.delay,
+        content: data.body
+    };
 }
 
 // 💾 Save processed file
@@ -116,9 +141,20 @@ async function saveProcessedFile(processId) {
     const outputPath = path.join('processed', `${processId}_processed.txt`);
     let output = '';
     
+    // Header
+    output += '='.repeat(60) + '\n';
+    output += `🔥 FIRE.JS STYLE PROCESSING\n`;
+    output += '='.repeat(60) + '\n';
+    output += `📁 File: ${process.filename}\n`;
+    output += `📊 Lines: ${process.totalLines}\n`;
+    output += `⏱️ Completed: ${new Date().toLocaleString()}\n`;
+    output += '='.repeat(60) + '\n\n';
+    
+    // Fire.js style output
     process.results.forEach(r => {
         output += `[Line ${r.lineNumber} - ${r.delay}s]\n`;
-        output += `${r.content}\n\n`;
+        output += `${r.content}\n`;  // Exact original line
+        output += '-'.repeat(40) + '\n\n';
     });
     
     await fs.writeFile(outputPath, output);
@@ -147,4 +183,19 @@ app.get('/api/status/:processId', (req, res) => {
     });
 });
 
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+// Cleanup old files
+setInterval(() => {
+    const oneHourAgo = Date.now() - (60 * 60 * 1000);
+    
+    activeProcesses.forEach((process, id) => {
+        if (process.startTime && new Date(process.startTime) < oneHourAgo) {
+            if (process.outputPath) fs.remove(process.outputPath).catch(console.error);
+            activeProcesses.delete(id);
+        }
+    });
+}, 30 * 60 * 1000);
+
+app.listen(PORT, () => {
+    console.log(`🚀 Fire.js style server running on port ${PORT}`);
+    console.log(`✅ Sabhi symbols support: । ? ! , . ; : " ' @ # $ % ^ & * ( ) - + =`);
+});
