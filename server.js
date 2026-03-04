@@ -30,14 +30,30 @@ const upload = multer({
     limits: { fileSize: 80 * 1024 * 1024 } // 80MB
 });
 
-// 📤 Upload endpoint
+// 📤 Upload endpoint with LINE NUMBER EDIT
 app.post('/api/upload', upload.single('file'), async (req, res) => {
     try {
         const file = req.file;
+        const { startLine, endLine } = req.body; // Line numbers from frontend
+        
         const content = await fs.readFile(file.path, 'utf8');
         
         // Split into lines
-        const lines = content.split('\n').filter(line => line.trim() !== '');
+        const allLines = content.split('\n').filter(line => line.trim() !== '');
+        
+        // 🎯 LINE NUMBER EDIT - Select specific lines
+        const start = parseInt(startLine) || 1;
+        const end = parseInt(endLine) || allLines.length;
+        
+        // Validate line numbers
+        if (start < 1 || end > allLines.length || start > end) {
+            return res.status(400).json({ 
+                error: `Invalid line numbers. File has ${allLines.length} lines (1-${allLines.length})` 
+            });
+        }
+        
+        // Selected lines based on user input
+        const selectedLines = allLines.slice(start - 1, end);
         
         const processId = Date.now() + '-' + Math.random().toString(36).substr(2, 9);
         
@@ -45,20 +61,21 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         activeProcesses.set(processId, {
             id: processId,
             filename: file.originalname,
-            lines: lines,
-            totalLines: lines.length,
+            allLines: allLines,
+            selectedLines: selectedLines,
+            startLine: start,
+            endLine: end,
+            totalLines: selectedLines.length,
             processed: 0,
             results: [],
             status: 'processing',
             startTime: new Date()
         });
 
-        // 🔥 YE LO AAPKA REQUESTED CODE:
-        // setTimeout(() => {a({body: "file text hoga yh "})} , 1000);
-        // aur seconds bhadte jayenge
-        
-        lines.forEach((line, index) => {
-            const seconds = index + 1; // 1, 2, 3, 4, 5...
+        // 🔥 PROCESS SELECTED LINES WITH INCREMENTAL DELAY
+        selectedLines.forEach((line, index) => {
+            const actualLineNumber = start + index; // Original line number in file
+            const seconds = index + 1; // 1, 2, 3, 4...
             const delay = seconds * 1000; // 1000, 2000, 3000...
             
             setTimeout(() => {
@@ -67,15 +84,17 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
                 
                 // 📝 a() function call with file text
                 const result = a({
-                    body: line,                    // "file text hoga yh" ki jagah asli file text
-                    lineNumber: seconds,
-                    totalLines: lines.length,
-                    delay: seconds                  // seconds: 1, 2, 3, 4...
+                    body: line,
+                    lineNumber: actualLineNumber,  // Original file line number
+                    selectedIndex: index + 1,       // Selected list mein position
+                    totalSelected: selectedLines.length,
+                    delay: seconds
                 });
                 
                 // Store result
                 currentProcess.results.push({
-                    lineNumber: seconds,
+                    lineNumber: actualLineNumber,
+                    selectedIndex: index + 1,
                     content: line,
                     delay: seconds,
                     processedAt: new Date().toISOString()
@@ -83,14 +102,14 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
                 
                 currentProcess.processed++;
                 
-                console.log(`✅ Line ${seconds}/${lines.length} - ${seconds}s: ${line.substring(0, 50)}...`);
+                console.log(`✅ Line ${actualLineNumber} (Selected ${index + 1}/${selectedLines.length}) - ${seconds}s`);
                 
-                // Check if all lines processed
-                if (currentProcess.processed === lines.length) {
+                // Check if all selected lines processed
+                if (currentProcess.processed === selectedLines.length) {
                     currentProcess.status = 'completed';
                     currentProcess.completedAt = new Date();
                     saveProcessedFile(processId);
-                    console.log(`🎉 All ${lines.length} lines processed!`);
+                    console.log(`🎉 All ${selectedLines.length} selected lines processed!`);
                 }
             }, delay);
         });
@@ -99,8 +118,10 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
             success: true,
             processId: processId,
             filename: file.originalname,
-            totalLines: lines.length,
-            message: 'Processing started - seconds badhte jayenge!'
+            totalLines: allLines.length,
+            selectedRange: `${start} to ${end}`,
+            selectedCount: selectedLines.length,
+            message: `Processing lines ${start} to ${end} with incremental delay`
         });
 
     } catch (error) {
@@ -108,23 +129,20 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
     }
 });
 
-// 🔧 a() function - jahan file text use hoga
+// 🔧 a() function
 function a(data) {
     console.log(`
-    ╔════════════════════════════════╗
-    ║ Line #${data.lineNumber} of ${data.totalLines} ║
-    ║ Delay: ${data.delay} second(s)        ║
-    ╚════════════════════════════════╝
+    ╔══════════════════════════════════════╗
+    ║ File Line #${data.lineNumber} (Selected #${data.selectedIndex}) ║
+    ║ Delay: ${data.delay} second(s)               ║
+    ╚══════════════════════════════════════╝
     Content: ${data.body.substring(0, 100)}
     `);
-    
-    // 📝 Yeh hai aapka SETTIMEOUT with file text
-    // setTimeout(() => {a({body: "file text hoga yh "})} , 1000);
-    // Yahan "file text hoga yh" ki jagah asli file ka text aa raha
     
     return {
         status: 'processed',
         lineNumber: data.lineNumber,
+        selectedIndex: data.selectedIndex,
         delay: data.delay,
         content: data.body
     };
@@ -139,15 +157,18 @@ async function saveProcessedFile(processId) {
     
     let output = '';
     output += '='.repeat(60) + '\n';
-    output += '📝 PROCESSED FILE\n';
+    output += '📝 PROCESSED FILE (Selected Lines Only)\n';
     output += '='.repeat(60) + '\n\n';
     output += `Original File: ${process.filename}\n`;
-    output += `Total Lines: ${process.totalLines}\n`;
+    output += `Total Lines in File: ${process.allLines.length}\n`;
+    output += `Selected Range: Lines ${process.startLine} to ${process.endLine}\n`;
+    output += `Selected Count: ${process.totalLines}\n`;
     output += `Completed At: ${process.completedAt}\n\n`;
     output += '-'.repeat(60) + '\n\n';
     
     process.results.forEach(r => {
-        output += `[Line ${r.lineNumber} - ${r.delay}s] ${r.content}\n`;
+        output += `[File Line ${r.lineNumber} - Selected #${r.selectedIndex} - ${r.delay}s]\n`;
+        output += `${r.content}\n`;
         output += '-'.repeat(40) + '\n\n';
     });
     
@@ -169,7 +190,7 @@ app.get('/api/download/:processId', async (req, res) => {
         }
         
         const filePath = process.outputPath;
-        const filename = `${path.parse(process.filename).name}_processed.txt`;
+        const filename = `${path.parse(process.filename).name}_lines_${process.startLine}-${process.endLine}.txt`;
         
         res.download(filePath, filename, async (err) => {
             if (err) console.error('Download error:', err);
@@ -192,7 +213,9 @@ app.get('/api/status/:processId', (req, res) => {
     res.json({
         processId: process.id,
         filename: process.filename,
-        totalLines: process.totalLines,
+        totalLines: process.allLines.length,
+        selectedRange: `${process.startLine} to ${process.endLine}`,
+        selectedCount: process.totalLines,
         processed: process.processed,
         status: process.status,
         progress: ((process.processed / process.totalLines) * 100).toFixed(2) + '%',
