@@ -1,4 +1,3 @@
-# package.json create karo
 cat > package.json << 'EOF'
 {
   "name": "file-processor-server",
